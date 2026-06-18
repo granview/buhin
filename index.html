@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物品管理システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { 
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; 
+            font-size: 1.15rem; 
+        }
+        /* 定引き換えの下線定義 */
+        .sub-item-row {
+            display: block;
+            line-height: 2.2rem;
+            min-height: 2.2rem;
+            border-bottom: 1.5px dashed #cbd5e1;
+        }
+        .sub-item-row:last-child {
+            border-bottom: none;
+        }
+
+        /* CSS XỬ LÝ ZOOM KHI DI CHUỘT */
+        .zoom-container {
+            position: relative;
+            overflow: hidden;
+            cursor: zoom-in;
+        }
+        .zoom-container img {
+            transition: transform 0.1s ease-out;
+            transform-origin: center center;
+        }
+        .zoom-container:hover img {
+            transform: scale(2.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-900">
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h1 class="text-2xl font-black text-gray-950 flex items-center gap-2">
+                📦 <span class="tracking-wide">物品管理システム</span>
+            </h1>
+
+            <nav class="flex gap-3">
+                <button id="btn-yobihin" onclick="switchTab('yobihin')" class="px-6 py-3 rounded-full font-black text-base transition-all bg-blue-600 text-white shadow-md">
+                    予備品
+                </button>
+                <button id="btn-linen" onclick="switchTab('linen')" class="px-6 py-3 rounded-full font-black text-base transition-all bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    リネン庫
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <section id="section-yobihin" class="block">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                <div class="lg:col-span-5 bg-white p-5 rounded-3xl shadow-md border border-gray-200 sticky top-28">
+                    <div class="zoom-container relative overflow-hidden rounded-2xl border border-gray-200" id="img-container" onclick="openLightbox()">
+                        <img src="image.png" id="target-img" alt="予備品配置図" class="w-full h-auto max-h-[75vh] object-contain mx-auto">
+                    </div>
+                </div>
+
+                <div class="lg:col-span-7 bg-white p-6 rounded-3xl shadow-md border border-gray-200">
+                    <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5 pb-2">
+                        <div class="flex-1 relative flex items-center">
+                            <span class="absolute left-4 text-gray-500 text-xl pointer-events-none">🔍</span>
+                            <input type="text" id="search-yobihin" oninput="renderYobihin()" placeholder="" class="w-full border-2 border-gray-300 rounded-2xl pl-12 pr-4 py-2.5 text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button onclick="openYobihinModal()" class="bg-emerald-600 text-white px-5 py-3 rounded-2xl text-sm font-black hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
+                            + 新しい番号を追加
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b-2 border-gray-300 text-gray-600 text-sm font-black">
+                                    <th class="py-3 px-4 w-24 text-center">番号</th>
+                                    <th class="py-3 px-4">物品名</th>
+                                    <th class="py-3 px-4 w-28 text-center">数量</th>
+                                    <th class="py-3 px-4 w-40 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="yobihin-list" class="divide-y divide-gray-200 text-base font-bold">
+                                <tr><td colspan="4" class="py-8 text-center text-gray-400 text-lg">データを読み込み中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-linen" class="hidden">
+            <div class="bg-white p-6 rounded-3xl shadow-md border border-gray-200">
+                <div class="pb-5 mb-2 flex justify-center">
+                    <div class="flex flex-wrap gap-3 justify-center" id="linen-floors-tabs">
+                        </div>
+                </div>
+
+                <div class="bg-gray-50 p-5 rounded-2xl border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-5">
+                        <div id="current-floor-title" class="flex items-center gap-3 whitespace-nowrap"></div>
+                        <div class="flex-1 max-w-md relative flex items-center">
+                            <span class="absolute left-4 text-gray-500 text-xl pointer-events-none">🔍</span>
+                            <input type="text" id="search-linen" oninput="renderLinenData()" placeholder="" class="w-full border-2 border-gray-300 rounded-2xl pl-12 pr-4 py-2.5 text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button onclick="openLinenModal()" class="bg-emerald-600 text-white px-5 py-3 rounded-2xl text-sm font-black hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
+                            + この階に物品を追加
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-inner p-4 border border-gray-200">
+                        <div id="linen-list" class="divide-y divide-gray-200"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="lightbox" onclick="closeLightbox()" class="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center hidden p-4 cursor-zoom-out">
+        <img src="image.png" alt="Phóng to ảnh sơ đồ" class="max-w-full max-h-screen object-contain rounded-xl shadow-2xl">
+    </div>
+
+    <div id="modal-yobihin" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl">
+            <h3 id="modal-yobihin-title" class="text-lg font-black mb-5 border-b pb-2">予備品の追加／編集</h3>
+            <input type="hidden" id="yobihin-index">
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-black text-gray-700 mb-2">番号 (例: 1, 2, 3...)</label>
+                    <input type="number" id="form-yobihin-number" class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-black text-gray-700 mb-2">物品名 (Enterで改行)</label>
+                        <textarea id="form-yobihin-name" rows="5" class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div class="col-span-1">
+                        <label class="block text-sm font-black text-gray-700 mb-2">数量 (Enterで改行)</label>
+                        <textarea id="form-yobihin-qty" rows="5" class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-base font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-8">
+                <button onclick="closeYobihinModal()" class="px-5 py-3 border-2 rounded-xl text-sm font-black text-gray-600 hover:bg-gray-100">キャンセル</button>
+                <button onclick="saveYobihin()" class="px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-black hover:bg-blue-700">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-linen" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl">
+            <h3 id="modal-linen-title" class="text-lg font-black mb-5 border-b pb-2">リネン物品の追加／編集</h3>
+            <input type="hidden" id="linen-index">
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-black text-gray-700 mb-2">物品名</label>
+                    <textarea id="form-linen-name" rows="3" class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <input type="hidden" id="form-linen-qty" value="1">
+                <input type="hidden" id="form-linen-note" value="">
+            </div>
+            <div class="flex justify-end gap-3 mt-8">
+                <button onclick="closeLinenModal()" class="px-5 py-3 border-2 rounded-xl text-sm font-black text-gray-600 hover:bg-gray-100">キャンセル</button>
+                <button onclick="saveLinen()" class="px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-black hover:bg-blue-700">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ***************************************************************
+        // CẦN THAY THẾ KHỐI CẤU HÌNH FIREBASE SDK CỦA BẠN VÀO ĐÂY:
+        // ***************************************************************
+        const firebaseConfig = {
+  apiKey: "AIzaSyCXvnzj88I0p3QEWWH8gc9r-e4tmqJAD4Y",
+  authDomain: "buhin-f44ff.firebaseapp.com",
+  databaseURL: "https://buhin-f44ff-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "buhin-f44ff",
+  storageBucket: "buhin-f44ff.firebasestorage.app",
+  messagingSenderId: "752157773071",
+  appId: "1:752157773071:web:c6e5e391e33cb97769c27a",
+  measurementId: "G-D0DSB636DZ"
+};
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        const yobihinRef = database.ref('dbYobihin');
+        const linenRef = database.ref('dbLinen');
+
+        let dbYobihin = [];
+        let dbLinen = { "3F": [], "5F": [], "7F": [], "8F": [] };
+        let currentFloor = "3F";
+        const floors = ["3F", "5F", "7F", "8F"];
+    </script>
+
+    <script>
+        const romajiMap = {
+            'a':'ア','i':'イ','u':'ウ','e':'エ','o':'オ','ka':'カ','ki':'キ','ku':'ク','ke':'ケ','ko':'コ',
+            'sa':'サ','shi':'シ','su':'ス','se':'セ','so':'ソ','ta':'タ','chi':'チ','tsu':'ツ','te':'テ','to':'ト',
+            'na':'ナ','ni':'ニ','nu':'ヌ','ne':'ネ','no':'ノ','ha':'ハ','hi':'ヒ','fu':'フ','he':'検','ho':'コー',
+            'ma':'マ','mi':'ミ','mu':'ム','me':'メ','mo':'モ','ya':'ヤ','yu':'ユ','yo':'ヨ','ra':'ラ','ri':'リ',
+            'ru':'ル','re':'レ','ro':'ロ','wa':'ワ','wo':'ヲ','n':'ン','ga':'ガ','gi':'ギ','gu':'グ','ge':'ゲ',
+            'go':'ゴ','za':'ザ','ji':'ジ','zu':'ズ','ze':'ゼ','zo':'ゾ','da':'ダ','di':'ヂ','du':'ヅ','de':'デ',
+            'do':'ド','ba':'バ','bi':'ビ','bu':'ブ','be':'ベ','bo':'ボ','pa':'パ','pi':'ピ','pu':'プ','pe':'ペ','po':'ポ'
+        };
+
+        function convertToKatakana(inputStr) {
+            let str = (inputStr || "").toLowerCase().replace(/([a-z])-/g, '$1-');
+            let result = "", i = 0;
+            while (i < str.length) {
+                let found = false;
+                for (let len = 3; len >= 1; len--) {
+                    if (i + len <= str.length) {
+                        let part = str.substr(i, len);
+                        if (romajiMap[part]) { result += romajiMap[part]; i += len; found = true; break; }
+                    }
+                }
+                if (!found) {
+                    let char = str.charAt(i);
+                    if (char.charCodeAt(0) >= 0x3041 && char.charCodeAt(0) <= 0x3096) result += String.fromCharCode(char.charCodeAt(0) + 0x60);
+                    else result += char;
+                    i++;
+                }
+            }
+            return result;
+        }
+
+        const containerImg = document.getElementById('img-container');
+        const img = document.getElementById('target-img');
+        containerImg.addEventListener('mousemove', (e) => {
+            const rect = containerImg.getBoundingClientRect();
+            img.style.transformOrigin = `${((e.clientX - rect.left) / rect.width) * 100}% ${((e.clientY - rect.top) / rect.height) * 100}%`;
+        });
+        containerImg.addEventListener('mouseleave', () => { img.style.transformOrigin = 'center center'; });
+        function openLightbox() { document.getElementById('lightbox').classList.remove('hidden'); }
+        function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); }
+
+        function switchTab(tab) {
+            const btnYobihin = document.getElementById('btn-yobihin');
+            const btnLinen = document.getElementById('btn-linen');
+            const secYobihin = document.getElementById('section-yobihin');
+            const secLinen = document.getElementById('section-linen');
+
+            if (tab === 'yobihin') {
+                btnYobihin.className = "px-6 py-3 rounded-full font-black text-base transition-all bg-blue-600 text-white shadow-md";
+                btnLinen.className = "px-6 py-3 rounded-full font-black text-base transition-all bg-gray-200 text-gray-700 hover:bg-gray-300";
+                secYobihin.classList.replace('hidden', 'block'); secLinen.classList.replace('block', 'hidden');
+                document.getElementById('search-yobihin').value = ""; renderYobihin();
+            } else {
+                btnLinen.className = "px-6 py-3 rounded-full font-black text-base transition-all bg-blue-600 text-white shadow-md";
+                btnYobihin.className = "px-6 py-3 rounded-full font-black text-base transition-all bg-gray-200 text-gray-700 hover:bg-gray-300";
+                secLinen.classList.replace('hidden', 'block'); secYobihin.classList.replace('block', 'hidden');
+                document.getElementById('search-linen').value = ""; renderLinenTabs(); renderLinenData();
+            }
+        }
+
+        function formatSubRows(text, isQty = false) {
+            const lines = (text || "").split('\n');
+            if (lines.length <= 1) {
+                return `<span class="${isQty ? 'text-blue-600' : 'text-gray-950'}">${text || "&nbsp;"}</span>`;
+            }
+            return lines.map(line => `<span class="sub-item-row ${isQty ? 'text-blue-600' : 'text-gray-950'}">${line.trim() === "" ? "&nbsp;" : line}</span>`).join('');
+        }
+
+        // LẮNG NGHE DỮ LIỆU CLOUD
+        yobihinRef.on('value', (snapshot) => { dbYobihin = snapshot.val() || []; renderYobihin(); });
+        linenRef.on('value', (snapshot) => {
+            dbLinen = snapshot.val() || { "3F": [], "5F": [], "7F": [], "8F": [] };
+            if(!dbLinen["3F"]) dbLinen["3F"] = [];
+            if(!dbLinen["5F"]) dbLinen["5F"] = [];
+            if(!dbLinen["7F"]) dbLinen["7F"] = [];
+            if(!dbLinen["8F"]) dbLinen["8F"] = [];
+            renderLinenTabs(); renderLinenData();
+        });
+
+        function renderYobihin() {
+            dbYobihin.sort((a, b) => a.number - b.number);
+            const container = document.getElementById('yobihin-list');
+            const rawQuery = document.getElementById('search-yobihin').value.trim();
+            const searchQuery = convertToKatakana(rawQuery);
+
+            const filteredData = dbYobihin.filter(item => {
+                if (rawQuery === "") return true;
+                if (!isNaN(rawQuery)) return item.number.toString() === rawQuery;
+                return convertToKatakana(item.name).includes(searchQuery);
+            });
+
+            if (filteredData.length === 0) {
+                container.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-gray-400 text-lg">該当する物品が見つかりません。</td></tr>`;
+                return;
+            }
+
+            container.innerHTML = filteredData.map((item) => {
+                const originalIndex = dbYobihin.indexOf(item);
+                const hasMultipleLines = (item.name || "").includes('\n');
+                const verticalAlignClass = hasMultipleLines ? "align-top py-2" : "align-middle py-4";
+
+                return `
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="px-4 text-center ${verticalAlignClass}">
+                            <div class="${!hasMultipleLines ? 'flex justify-center items-center h-full' : ''}">
+                                <span class="inline-block bg-red-500 text-white font-black rounded-full w-8 h-8 text-sm leading-8">${item.number}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 font-black text-lg ${verticalAlignClass}">
+                            <div class="${!hasMultipleLines ? 'flex items-center h-full' : ''}">${formatSubRows(item.name, false)}</div>
+                        </td>
+                        <td class="px-4 text-center bg-gray-50/30 font-black text-xl ${verticalAlignClass}">
+                            <div class="${!hasMultipleLines ? 'flex justify-center items-center h-full' : ''}">${formatSubRows(item.qty, true)}</div>
+                        </td>
+                        <td class="px-4 text-right space-x-3 ${verticalAlignClass}">
+                            <div class="${!hasMultipleLines ? 'flex justify-end items-center h-full gap-3' : ''}">
+                                <button onclick="editYobihin(${originalIndex})" class="text-blue-600 hover:text-blue-800 font-black text-base">編集</button>
+                                <button onclick="deleteYobihin(${originalIndex})" class="text-red-500 hover:text-red-700 font-black text-base">削除</button>
+                            </div>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function openYobihinModal(index = -1) {
+            document.getElementById('modal-yobihin').classList.remove('hidden');
+            if (index > -1) {
+                document.getElementById('modal-yobihin-title').innerText = "物品の編集 (番号: " + dbYobihin[index].number + ")";
+                document.getElementById('yobihin-index').value = index;
+                document.getElementById('form-yobihin-number').value = dbYobihin[index].number;
+                document.getElementById('form-yobihin-name').value = dbYobihin[index].name;
+                document.getElementById('form-yobihin-qty').value = dbYobihin[index].qty;
+            } else {
+                document.getElementById('modal-yobihin-title').innerText = "新しい物品を追加";
+                document.getElementById('yobihin-index').value = -1;
+                document.getElementById('form-yobihin-number').value = "";
+                document.getElementById('form-yobihin-name').value = "";
+                document.getElementById('form-yobihin-qty').value = "1";
+            }
+        }
+        function closeYobihinModal() { document.getElementById('modal-yobihin').classList.add('hidden'); }
+
+        function saveYobihin() {
+            const index = parseInt(document.getElementById('yobihin-index').value);
+            const number = parseInt(document.getElementById('form-yobihin-number').value);
+            const name = document.getElementById('form-yobihin-name').value.trim();
+            const qty = document.getElementById('form-yobihin-qty').value.trim();
+            if (!number || !name) { alert("番号と物品名を入力してください！"); return; }
+
+            const itemData = { number, name, qty };
+            if (index > -1) dbYobihin[index] = itemData;
+            else dbYobihin.push(itemData);
+
+            yobihinRef.set(dbYobihin); closeYobihinModal();
+        }
+
+        function deleteYobihin(index) { if (confirm("この物品を削除してもよろしいですか？")) { dbYobihin.splice(index, 1); yobihinRef.set(dbYobihin); } }
+
+        // --- リネン庫の処理 ---
+        function renderLinenTabs() {
+            const container = document.getElementById('linen-floors-tabs');
+            container.innerHTML = floors.map(floor => `<button onclick="selectFloor('${floor}')" class="px-5 py-3 rounded-2xl text-base font-black transition shadow-sm ${currentFloor === floor ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">${floor}</button>`).join('');
+            document.getElementById('current-floor-title').innerHTML = `<span class="px-5 py-2 bg-blue-900 text-white font-black text-base rounded-2xl shadow-sm">${currentFloor}</span><span class="text-xl font-black text-gray-950">物品一覧</span>`;
+        }
+
+        function selectFloor(floor) { currentFloor = floor; document.getElementById('search-linen').value = ""; renderLinenTabs(); renderLinenData(); }
+
+        function renderLinenData() {
+            const container = document.getElementById('linen-list');
+            const searchQuery = convertToKatakana(document.getElementById('search-linen').value.toLowerCase().trim());
+
+            if (searchQuery !== "") {
+                let allResultsHTML = ""; let foundAny = false;
+                floors.forEach(floor => {
+                    const data = dbLinen[floor] || [];
+                    const filtered = data.filter(item => convertToKatakana(item.name).includes(searchQuery));
+                    if (filtered.length > 0) {
+                        foundAny = true;
+                        filtered.forEach(item => {
+                            const originalIndex = dbLinen[floor].indexOf(item);
+                            allResultsHTML += `
+                                <div class="py-4 flex justify-between items-center hover:bg-gray-50/80 px-2 transition rounded-xl">
+                                    <div class="flex items-center gap-4">
+                                        <span class="px-3 py-1 bg-gray-600 text-white font-bold text-xs rounded-xl">${floor}</span>
+                                        <span class="font-black text-gray-950 text-xl" style="white-space: pre-line;">${item.name}</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <button onclick="editLinenFromSearch('${floor}', ${originalIndex})" class="text-blue-600 hover:text-blue-800 font-black text-base">編集</button>
+                                        <button onclick="deleteLinenFromSearch('${floor}', ${originalIndex})" class="text-red-500 hover:text-red-700 font-black text-base">削除</button>
+                                    </div>
+                                </div>`;
+                        });
+                    }
+                });
+                container.innerHTML = foundAny ? allResultsHTML : `<div class="py-8 text-center text-gray-400 text-lg font-bold">全階から該当する物品が見つかりません。</div>`;
+                return;
+            }
+
+            const data = dbLinen[currentFloor] || [];
+            if (data.length === 0) { container.innerHTML = `<div class="py-8 text-center text-gray-400 text-lg font-bold">このフロアには物品が登録されていません。</div>`; return; }
+            container.innerHTML = data.map((item, index) => `
+                <div class="py-4 flex justify-between items-center hover:bg-gray-50/80 px-2 transition rounded-xl">
+                    <div class="flex items-center"><span class="font-black text-gray-950 text-xl" style="white-space: pre-line;">${item.name}</span></div>
+                    <div class="flex gap-4">
+                        <button onclick="editLinen(${index})" class="text-blue-600 hover:text-blue-800 font-black text-base">編集</button>
+                        <button onclick="deleteLinen(${index})" class="text-red-500 hover:text-red-700 font-black text-base">削除</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function editLinenFromSearch(floor, index) { currentFloor = floor; renderLinenTabs(); openLinenModal(index); }
+        function deleteLinenFromSearch(floor, index) { if (confirm(`${floor} のこの物品を削除してもよろしいですか？`)) { dbLinen[floor].splice(index, 1); linenRef.set(dbLinen); } }
+        function openLinenModal(index = -1) {
+            document.getElementById('modal-linen').classList.remove('hidden');
+            if (index > -1) {
+                document.getElementById('modal-linen-title').innerText = `${currentFloor} 物品編集`;
+                document.getElementById('linen-index').value = index;
+                document.getElementById('form-linen-name').value = dbLinen[currentFloor][index].name;
+            } else {
+                document.getElementById('modal-linen-title').innerText = `${currentFloor} 新規物品追加`;
+                document.getElementById('linen-index').value = -1; document.getElementById('form-linen-name').value = "";
+            }
+        }
+        function closeLinenModal() { document.getElementById('modal-linen').classList.add('hidden'); }
+
+        function saveLinen() {
+            const index = parseInt(document.getElementById('linen-index').value);
+            const name = document.getElementById('form-linen-name').value.trim();
+            if (!name) { alert("物品名を入力してください！"); return; }
+
+            const itemData = { name, qty: 1, note: "" };
+            if (index > -1) dbLinen[currentFloor][index] = itemData;
+            else dbLinen[currentFloor].push(itemData);
+
+            linenRef.set(dbLinen); closeLinenModal();
+        }
+
+        function editLinen(index) { openLinenModal(index); }
+        function deleteLinen(index) { if (confirm("この物品を削除してもよろしいですか？")) { dbLinen[currentFloor].splice(index, 1); linenRef.set(dbLinen); } }
+    </script>
+</body>
+</html>
