@@ -182,15 +182,15 @@
         // CẦN THAY THẾ KHỐI CẤU HÌNH FIREBASE SDK CỦA BẠN VÀO ĐÂY:
         // ***************************************************************
         const firebaseConfig = {
-  apiKey: "AIzaSyCXvnzj88I0p3QEWWH8gc9r-e4tmqJAD4Y",
-  authDomain: "buhin-f44ff.firebaseapp.com",
-  databaseURL: "https://buhin-f44ff-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "buhin-f44ff",
-  storageBucket: "buhin-f44ff.firebasestorage.app",
-  messagingSenderId: "752157773071",
-  appId: "1:752157773071:web:c6e5e391e33cb97769c27a",
-  measurementId: "G-D0DSB636DZ"
-};
+          apiKey: "AIzaSyCXvnzj88I0p3QEWWH8gc9r-e4tmqJAD4Y",
+          authDomain: "buhin-f44ff.firebaseapp.com",
+          databaseURL: "https://buhin-f44ff-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "buhin-f44ff",
+          storageBucket: "buhin-f44ff.firebasestorage.app",
+          messagingSenderId: "752157773071",
+          appId: "1:752157773071:web:c6e5e391e33cb97769c27a",
+          measurementId: "G-D0DSB636DZ"
+        };
 
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
@@ -306,6 +306,7 @@
                 const hasMultipleLines = (item.name || "").includes('\n');
                 const verticalAlignClass = hasMultipleLines ? "align-top py-2" : "align-middle py-4";
 
+                // SỬA TẠI ĐÂY: Thay editYobihin(${originalIndex}) thành openYobihinModal(${originalIndex})
                 return `
                     <tr class="hover:bg-gray-50/50 transition">
                         <td class="px-4 text-center ${verticalAlignClass}">
@@ -321,7 +322,7 @@
                         </td>
                         <td class="px-4 text-right space-x-3 ${verticalAlignClass}">
                             <div class="${!hasMultipleLines ? 'flex justify-end items-center h-full gap-3' : ''}">
-                                <button onclick="editYobihin(${originalIndex})" class="text-blue-600 hover:text-blue-800 font-black text-base">編集</button>
+                                <button onclick="openYobihinModal(${originalIndex})" class="text-blue-600 hover:text-blue-800 font-black text-base">編集</button>
                                 <button onclick="deleteYobihin(${originalIndex})" class="text-red-500 hover:text-red-700 font-black text-base">削除</button>
                             </div>
                         </td>
